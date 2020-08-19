@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 # setup llvm lit
 set(LLVM_LIT_ARGS "-sv" CACHE STRING "lit default options")
 
-find_package(MLIR REQUIRED CONFIG)
+#find_package(MLIR REQUIRED CONFIG)
 
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -32,11 +32,11 @@ set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
 
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-include(TableGen)
-include(AddLLVM)
-include(AddMLIR)
-
-include(HandleLLVMOptions)
+#include(TableGen)
+#include(AddLLVM)
+#include(AddMLIR)
+#
+#include(HandleLLVMOptions)
 
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
@@ -69,6 +69,7 @@ if (CUDA_BACKEND_ENABLED)
     message(SEND_ERROR "Building the oec CUDA backend requires CUDA")
   endif()
   find_library(CUDA_RUNTIME_LIBRARY cuda)
+  include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 if (ROCM_BACKEND_ENABLED)
   if (NOT ("AMDGPU" IN_LIST LLVM_TARGETS_TO_BUILD))
