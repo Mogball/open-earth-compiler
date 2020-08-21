@@ -28,45 +28,48 @@ using namespace mlir;
 // stencil.apply
 //===----------------------------------------------------------------------===//
 
-static ParseResult parseApplyOp(OpAsmParser &parser, OperationState &state) {
-  SmallVector<OpAsmParser::OperandType, 8> operands;
-  SmallVector<OpAsmParser::OperandType, 8> arguments;
-  SmallVector<Type, 8> operandTypes;
-
-  // Parse the assignment list
+static ParseResult parseRegionWithArguments(OpAsmParser &parser,
+                                            Region &region) {
+  SmallVector<OpAsmParser::OperandType, 4> args;
+  SmallVector<Type, 4> tys;
   if (succeeded(parser.parseOptionalLParen())) {
-    do {
-      OpAsmParser::OperandType currentArgument, currentOperand;
-      Type currentType;
-
-      if (parser.parseRegionArgument(currentArgument) || parser.parseEqual() ||
-          parser.parseOperand(currentOperand) ||
-          parser.parseColonType(currentType))
+    OpAsmParser::OperandType arg;
+    Type ty;
+    auto result = parser.parseOptionalOperand(arg);
+    if (result.hasValue()) {
+      if (*result || parser.parseColonType(ty))
         return failure();
-
-      arguments.push_back(currentArgument);
-      operands.push_back(currentOperand);
-      operandTypes.push_back(currentType);
-    } while (succeeded(parser.parseOptionalComma()));
+      args.push_back(arg);
+      tys.push_back(ty);
+      while (succeeded(parser.parseOptionalComma())) {
+        if (parser.parseOperand(arg) || parser.parseColonType(ty))
+          return failure();
+        args.push_back(arg);
+        tys.push_back(ty);
+      }
+    }
     if (parser.parseRParen())
       return failure();
   }
+  return parser.parseRegion(region, args, tys);
+}
 
-  // Parse the result types and the optional attributes
-  SmallVector<Type, 8> resultTypes;
-  if (parser.parseArrowTypeList(resultTypes) ||
-      parser.parseOptionalAttrDictWithKeyword(state.attributes))
+static ParseResult parseApplyOp(OpAsmParser &parser, OperationState &state) {
+  SmallVector<OpAsmParser::OperandType, 8> operands;
+  SmallVector<OpAsmParser::OperandType, 8> arguments;
+  FunctionType types;
+
+  if (parser.parseOperandList(operands, -1, OpAsmParser::Delimiter::Paren) ||
+      parser.parseColonType(types) ||
+      parser.parseOptionalAttrDictWithKeyword(state.attributes) ||
+      parseRegionWithArguments(parser, *state.addRegion()))
     return failure();
 
   // Resolve the operand types
   auto loc = parser.getCurrentLocation();
-  if (parser.resolveOperands(operands, operandTypes, loc, state.operands) ||
-      parser.addTypesToList(resultTypes, state.types))
-    return failure();
-
-  // Parse the body region.
-  Region *body = state.addRegion();
-  if (parser.parseRegion(*body, arguments, operandTypes))
+  if (parser.resolveOperands(operands, types.getInputs(), loc,
+                             state.operands) ||
+      parser.addTypesToList(types.getResults(), state.types))
     return failure();
 
   // Parse the optional bounds
